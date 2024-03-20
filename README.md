@@ -13,6 +13,7 @@ This project consists of two parts:
 The virtual machine has Ubuntu OS and running on VirtualBox platform.
 Using Visual Studio code as an editor (Extensions: C/C++, C/C++ Extension Pack).
 - VirtualBox v7.0.14
+- Ubuntu OS v22.04.3-desktop-amd64
 - Visual Studio code v1.87.2
 - gcc (Ubuntu 11.4.0-1ubuntu1~22.04) v11.4.0 - ['sudo apt install build-essential']
 - iptables v1.8.7 (nf_tables) - ['sudo apt-get install iptables']
