@@ -18,11 +18,12 @@ class Database:
                             (username, message, timedate))
         self.connection.commit()
 
-    def fetch_all(self, table):
+    def fetch_table(self, table):
+        self.logger.print_title(table)
         self.cursor.execute("SELECT * FROM {}".format(table))
+        column_names = [description[0] for description in self.cursor.description]
         rows = self.cursor.fetchall()
-        for row in rows:
-            print(row)
+        self.logger.print_table(column_names, rows)
 
     def fetch_all_tables(self):
         self.cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")

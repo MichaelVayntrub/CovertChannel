@@ -10,3 +10,6 @@ class User:
     def __init__(self, role, username):
         self.role = role
         self.username = username
+
+    def get_access(self):
+        return User.Roles[self.role]

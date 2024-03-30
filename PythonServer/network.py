@@ -1,5 +1,6 @@
 import socket
 import threading
+import time
 
 class Server:
 
@@ -34,9 +35,16 @@ class Server:
                         with self.packet_lock:
                             self.logger.server_message(message, self.name)
                             self.decipher.receive_packet(self.name)
-                connection.close()
+                    else:
+                        connection.detach()
+                        connection.close()
+                        time.sleep(1)
+                        self.stop_server()
             except socket.timeout:
                 pass
+            except Exception as e:
+                self.logger.server_log(e, "error", self.name)
+        server_socket.close()
         self.logger.server_log("server closed", "notice", self.name)
 
     def reset_connection(self):
