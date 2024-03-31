@@ -6,6 +6,7 @@ from datetime import datetime
 import threading
 import time
 import os
+import re
 
 class Logger:
 
@@ -108,7 +109,7 @@ class Logger:
         ]
         if len(args) == 0:
             self.print_title("Help")
-            print(Style.BRIGHT + "Usage: command [arguments] [-option]" + Style.RESET_ALL)
+            print(Style.BRIGHT + " Usage: command [arguments] [-option]" + Style.RESET_ALL)
             field_names = ["Command", "Description", "Argument", "Options"]
             command_rows = list(map(command_desc, filter(filtered_access, commands_values)))
             self.print_table(field_names, command_rows)
@@ -167,7 +168,13 @@ class Logger:
         self.program_print(types[type] + log + " " * (Logger.PROGRAM_LOG_LENGTH - len(log) + offset) + Style.RESET_ALL)
 
     def calc_offset(self, log):
-        return sum(self.color_offsets[color] for color in self.color_offsets.keys() if color in log)
+        log_updated = log
+        sum = 0
+        for color in self.color_offsets.keys():
+            while color in log_updated:
+                log_updated = log_updated.replace(color, "", 1)
+                sum += self.color_offsets[color]
+        return sum
 
     def program_print(self, log):
         with self.log_lock:

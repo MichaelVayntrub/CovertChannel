@@ -3,11 +3,14 @@ from unittest.mock import patch
 from colorama import Fore, Style, Back
 from input import Input, Command
 from database import Database
+from network import Network, Server
 from decipher import Decipher
 from logger import Logger
 from user import User
 from io import StringIO
 import sys
+import socket
+import threading
 
 
 class test_receive_packet(unittest.TestCase):
@@ -78,6 +81,15 @@ class test_logger(unittest.TestCase):
         res +=  Fore.YELLOW + "Port B: " + Style.RESET_ALL + str(test_port)
         self.assertEqual(printed_output, res)
 
+    def test_calc_offset(self):
+        logger = Logger()
+        expected_offset = logger.color_offsets[Fore.YELLOW] + logger.color_offsets[Fore.YELLOW] \
+                          + 2 * logger.color_offsets[Style.RESET_ALL]
+        test_string = Fore.YELLOW + "This is " + Style.RESET_ALL
+        test_string += Fore.YELLOW + "a test: " + Style.RESET_ALL
+        result_offset = logger.calc_offset(test_string)
+        self.assertEqual(result_offset, expected_offset)
+
 class test_input(unittest.TestCase):
     @patch('sys.stdin', StringIO('test'))
     def test_next_command_read(self):
@@ -110,12 +122,12 @@ class test_input(unittest.TestCase):
         user = User("user", "test_user")
         commands = {
             "test": Command("test",
-                            "This is a test",
-                            ("arg", 1, 1),
-                            test_func,
-                            [7],
-                            [],
-                            1
+                    "This is a test",
+                    ("arg", 1, 1),
+                    test_func,
+                    [7],
+                    [],
+                    1
             ),
         }
         input = Input(user, logger, database, commands)
@@ -189,3 +201,25 @@ class test_input(unittest.TestCase):
         printed_output = captured_output.getvalue().strip()
         sys.stdout = sys.__stdout__
         self.assertEqual(printed_output, expected)
+
+class test_server(unittest.TestCase):
+    def test_listening_port(self):
+        logger = Logger()
+        decipher = Decipher(logger)
+        network = Network(logger, decipher)
+        test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        res = [False, test_sock]
+
+        def is_listen(port, res):
+            res[1].settimeout(1)
+            result = res[1].connect_ex((network.HOST_IP, port))
+            if result == 0: res[0] = True
+            else: res[0] = False
+
+        threadA = threading.Thread(target=network.servers[0].run_server)
+        threadA.start()
+        is_listen(network.PORT_A, res)
+        self.assertTrue(res[0])
+        res[1].close()
+        network.servers[0].stop_server()
+        threadA.join()

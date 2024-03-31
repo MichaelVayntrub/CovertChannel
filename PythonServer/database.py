@@ -11,7 +11,7 @@ class Database:
                             username TEXT,
                             message TEXT,
                             timedate TEXT
-                        )''')
+                            )''')
 
     def add_message(self, username, message, timedate):
         self.cursor.execute("INSERT INTO messages (username, message, timedate) VALUES (?, ?, ?)",\

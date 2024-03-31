@@ -49,8 +49,6 @@ def state_running():
         thread = threading.Thread(target=server.run_server)
         threads.append(thread)
         thread.start()
-    #time.sleep(10)
-    #end_run()
 
 def state_exit():
     global program_on
@@ -61,6 +59,7 @@ def state_exit():
     for thread in threads:
         thread.join()
     keyboard.unhook_all()
+    program_database.close_database()
     program_on = False
 
 def end_run():

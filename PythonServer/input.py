@@ -1,9 +1,9 @@
+from prettytable import PrettyTable, DOUBLE_BORDER
 from colorama import Fore, Style, Back
 from datetime import datetime
 import msvcrt
 import re
 
-from prettytable import PrettyTable, DOUBLE_BORDER   #test
 
 def clear_buffer():
     while msvcrt.kbhit():
@@ -23,10 +23,8 @@ class Input:
         self.database = database
         self.commands = commands
         self.prefix = Input.INPUT_PREFIX.format(user.role, Fore.GREEN + user.username + Fore.WHITE)
-        self.get_help = 0
 
     def command_input(self):
-        self.get_help = 0
         while self.input_state:
             self.next_command()
 
@@ -34,8 +32,6 @@ class Input:
         self.input_state = state
 
     def next_command(self):
-        if self.get_help == Input.FORCED_HELP_LIMIT:
-            self.commands.get('help').execute(self.user, self.logger, [], "")
         user_input = input(self.prefix)
         option = ""
         try:
@@ -65,10 +61,8 @@ class Input:
 
         except ValueError as e:
             self.logger.program_log(str(e), "error", 0)
-            self.get_help = (self.get_help + 1) % (Input.FORCED_HELP_LIMIT + 1)
         except TypeError as e:
             self.logger.program_log(str(e), "error", 0)
-            self.get_help = (self.get_help + 1) % (Input.FORCED_HELP_LIMIT + 1)
 
     def save_msg_input(self, message):
         flag = True
