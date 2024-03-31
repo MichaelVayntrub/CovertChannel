@@ -13,6 +13,7 @@
 #include <signal.h>
 #include <errno.h>
 #include <math.h>
+#include <time.h>
 #include "queue.h"
 #include "utility.h"
 
@@ -21,15 +22,20 @@ typedef struct ThreadTCP_Data {
     char* ip;
     int port;
     int send_count;
+    int* cond_channels_signal;
+    pthread_cond_t* cond_channels;
 } ThreadTCP_Data;
 
-ThreadTCP_Data* CreateTCP_Data(int id, char* ip, int port, int send_count);
+void InitChannelsMutexes();
+void DestroyChannelsMutexes();
+ThreadTCP_Data* CreateTCP_Data(int id, char* ip, int port, int send_count, int* cond_channels_signal, 
+                               pthread_cond_t* cond_channels);
 void* RunTCP_Channel(void* arg);
 char* WaitForHostIp();
 void* make_verdict(void* args);
 int get_next_bit();
 
 int callback1(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
-                  struct nfq_data *nfa, void *data);
+              struct nfq_data *nfa, void *data);
 int callback2(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
-                  struct nfq_data *nfa, void *data);
+              struct nfq_data *nfa, void *data);

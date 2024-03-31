@@ -9,12 +9,13 @@
 #include <libnetfilter_queue/libnetfilter_queue.h>
 
 #define SERVER_IP "192.168.1.25"
-//#define SERVER_IP "192.168.48.198"
 #define SERVER_A_PORT 54321 
 #define SERVER_B_PORT 54322
 #define UDP_PORT 54323
 #define MIN_SEND_COUNT 1
 #define CHAR_SIZE_XOR_EXPAND 16  // 8(bits) * 2(expanding)
+#define MODE_TIMED 0
+#define MODE_STREAM 1
 
 #define ANSI_COLOR_RED     "\x1b[31m"
 #define ANSI_COLOR_GREEN   "\x1b[32m"

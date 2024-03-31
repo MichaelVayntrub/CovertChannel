@@ -1,15 +1,32 @@
 #include <sys/socket.h>
 #include "monitor.h"
 
-pthread_mutex_t mutex_print = PTHREAD_MUTEX_INITIALIZER; //need to be destroyed somehow//
+pthread_mutex_t mutex_channel[2];
+pthread_mutex_t mutex_channel0 = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mutex_channel1 = PTHREAD_MUTEX_INITIALIZER;
+static int rest;
 
-ThreadTCP_Data* CreateTCP_Data(int id, char* ip, int port, int send_count)
+void InitChannelsMutexes() 
+{
+    mutex_channel[0] = mutex_channel0;
+    mutex_channel[1] = mutex_channel1;
+}
+
+void DestroyChannelsMutexes() 
+{
+    pthread_mutex_destroy(&mutex_channel0);
+    pthread_mutex_destroy(&mutex_channel1);
+}
+
+ThreadTCP_Data* CreateTCP_Data(int id, char* ip, int port, int send_count, int* cond_channels_signal, pthread_cond_t* cond_channels)
 {
     ThreadTCP_Data* data = (ThreadTCP_Data*)malloc(sizeof(ThreadTCP_Data));
     data->id = id;
     data->ip = ip;
     data->port = port;
     data->send_count = send_count;
+    data->cond_channels_signal = cond_channels_signal;
+    data->cond_channels = cond_channels;
     return data;
 }
 
@@ -21,6 +38,10 @@ void* RunTCP_Channel(void* arg) {
     int index = 0;
     char msg[30];
 
+    int* cond_channels_signal = data->cond_channels_signal;
+    pthread_cond_t* cond_channels = data->cond_channels;
+
+
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1) {
         perror("Socket creation failed");
@@ -31,29 +52,36 @@ void* RunTCP_Channel(void* arg) {
     server_addr.sin_port = htons(data->port);
     server_addr.sin_addr.s_addr = inet_addr(data->ip);
 
-    sleep(3);
+    while (*cond_channels_signal != data->id) {
+        pthread_cond_wait(cond_channels, &(mutex_channel[data->id]));
+    }
     if (connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
         perror("Connection failed");
         exit(EXIT_FAILURE);
     }
     printf(ANSI_COLOR_CYAN "Connected to the server %s on port %d\n" ANSI_COLOR_RESET, data->ip, data->port);
 
+    int other_channel = 1 - data->id;
+    
     while (running) {
+        
+        while (*cond_channels_signal != data->id) {
+            pthread_cond_wait(cond_channels, &(mutex_channel[data->id]));
+        }
+
         sprintf(msg, "channel-No.%d[%d]", data->id, index++);
 
         if (send(sockfd, msg, strlen(msg), 0) < 0) {
             perror("Send failed");
             exit(EXIT_FAILURE);
         }
-        pthread_mutex_lock(&mutex_print);
         printf(ANSI_COLOR_YELLOW "Message sent: " ANSI_COLOR_RESET);
         printf("%s\n", msg);
-        pthread_mutex_unlock(&mutex_print);
-        sleep(1);
-
+        
         if (index > data->send_count) running = false;
+        *cond_channels_signal = -1;
     }
-  
+    
     close(sockfd);
     printf(ANSI_COLOR_CYAN  "TCP Channel No.%d closed\n" ANSI_COLOR_RESET, data->id);
     return 0;

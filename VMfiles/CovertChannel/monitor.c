@@ -3,7 +3,6 @@
 const int MIN_SEND_VAL = MIN_SEND_COUNT * CHAR_SIZE_XOR_EXPAND;
 pthread_mutex_t mutex_fin = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_recv = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t mutex_callback1 = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t mutex_callback2 = PTHREAD_MUTEX_INITIALIZER;
 int cond_signal = 0;
@@ -11,6 +10,13 @@ struct nfq_handle *h;
 struct nfq_q_handle **qh;
 struct nfnl_handle *nh;
 int running = false;
+int running_verdict = true;
+int mode = MODE_STREAM;
+//int mode = MODE_TIMED;
+
+time_t current_time, previous_time;
+static int cond_channels_signal = -1;
+pthread_cond_t cond_channels = PTHREAD_COND_INITIALIZER;
 
 int *covert_message, cm_size;
 char *server_ip;
@@ -21,25 +27,49 @@ int indexId, indexMsg, statePacket[2], seq[2];
 void* verdict_thread(void* args) 
 {
     int id, bit = 0, i;
+    int channel = 0;
     if (cm_size > 0) {
         bit = covert_message[0];
     }
 
-    while (running) {
+    previous_time = time(NULL);
+    cond_channels_signal = 0;
+    pthread_cond_signal(&cond_channels);
 
-        pthread_mutex_lock(&mutex_recv);
-        while (!cond_signal) {
-            pthread_cond_wait(&cond, &mutex_recv);
+    while (running_verdict) {
+        current_time = time(NULL);
+        if (current_time != previous_time || cond_channels_signal * mode) {
+            channel = 1 - channel;
+            cond_channels_signal = channel;
+            previous_time = current_time;
+            pthread_cond_signal(&cond_channels);
         }
-        pthread_mutex_unlock(&mutex_recv);
 
-        if (qs[bit]->counter > 0) 
-        {
-            i = bit;
-            id = pop(qs[bit]);
-            bit = get_next_bit();
-            nfq_set_verdict(qh[i], id, NF_ACCEPT, 0, NULL);
+        if (running || indexId < cm_size) {
+            if (qs[bit]->counter > 0) 
+            {
+                i = bit;
+                id = pop(qs[bit]);
+                bit = get_next_bit();
+                nfq_set_verdict(qh[i], id, NF_ACCEPT, 0, NULL);
+            }
+        } else {
+            while (qs[0]->counter > 0 || qs[1]->counter > 0) {
+
+                if (qs[0]->counter > 0 && qs[1]->counter > 0) {
+                    bit = indexId++ % 2;
+                }
+                else if (qs[1]->counter > 0) bit = 1;
+                else bit = 0;
+
+                id = pop(qs[bit]);
+                nfq_set_verdict(qh[bit], id, NF_ACCEPT, 0, NULL);
+            }
+            running_verdict = false;
         }
+        
+        struct timespec ts = {0, 100000000};
+        nanosleep(&ts, NULL);
     }
 }
 
@@ -53,7 +83,6 @@ int get_next_bit()
         res = indexId % 2;
     }
     return res;
-    
 }
 
 int callback1(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
@@ -67,18 +96,19 @@ int callback1(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
     if (hdr) {
         id = ntohl(hdr->packet_id);
         
-        if (statePacket[0] == 2) {
-            (statePacket[0])++;
-            push(qs[0], id);
-        }
-        else if(statePacket[0] > 2) {
+        if (statePacket[0] > 2 ) {
             if (seq[0] == tcp_header->seq) {
                 nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
             } else { push(qs[0], id); }
         }
         else {
             (statePacket[0])++;
-            nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
+            if (statePacket[0] == 2) {
+                push(qs[0], id);
+            }
+            else {
+                nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
+            }
         }
         pthread_mutex_lock(&mutex_callback1);
         seq[0] = tcp_header->seq;
@@ -105,22 +135,23 @@ int callback2(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
     if (hdr) {
         id = ntohl(hdr->packet_id);
         
-        if (statePacket[1] == 2) {
-            (statePacket[1])++;
-            push(qs[1], id);
-        }
-        else if(statePacket[1] > 2) {
+        if (statePacket[1] > 2) {
             if (seq[1] == tcp_header->seq) {
                 nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
             } else { push(qs[1], id); }
         }
         else {
             (statePacket[1])++;
-            nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
+            if (statePacket[1] == 2) {
+                push(qs[1], id);
+            }
+            else {
+                nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
+            }
         }
-        pthread_mutex_lock(&mutex_callback2);
+        pthread_mutex_lock(&mutex_callback1);
         seq[1] = tcp_header->seq;
-        pthread_mutex_unlock(&mutex_callback2);
+        pthread_mutex_unlock(&mutex_callback1);
 
         if (tcp_header->fin) {
             pthread_mutex_lock(&mutex_fin);
@@ -144,6 +175,7 @@ int main()
     seq[0] = seq[1] = 0;
     indexId = indexMsg = 0;
     qs = createQueueArr(2);
+    InitChannelsMutexes();
 
     if(LoadNFLinkModules()) {
         exit(EXIT_FAILURE);
@@ -219,19 +251,16 @@ int main()
     }
 
     int send_count = fmax(cm_size, MIN_SEND_VAL);
-    ThreadTCP_Data* data1 = CreateTCP_Data(0, server_ip, SERVER_A_PORT, send_count / 2 - 1);
-    ThreadTCP_Data* data2 = CreateTCP_Data(1, server_ip, SERVER_B_PORT, send_count / 2 - 1);
+    ThreadTCP_Data *data1 = CreateTCP_Data(0, server_ip, SERVER_A_PORT, send_count / 2 - 1, &cond_channels_signal, &cond_channels);
+    ThreadTCP_Data *data2 = CreateTCP_Data(1, server_ip, SERVER_B_PORT, send_count / 2 - 1, &cond_channels_signal, &cond_channels);
     pthread_create(&tcpc1_tid, NULL, RunTCP_Channel, data1);
-    sleep(1);
     pthread_create(&tcpc2_tid, NULL, RunTCP_Channel, data2);
 
     while (running) {
         if ((n = recv(fd, buf, sizeof(buf), 0)) >= 0) {
-            pthread_mutex_lock(&mutex_recv);
+            //pthread_mutex_lock(&mutex_recv);
             nfq_handle_packet(h, buf, n);
-            cond_signal = 1;
-            pthread_cond_signal(&cond);
-            pthread_mutex_unlock(&mutex_recv);
+            //pthread_mutex_unlock(&mutex_recv);
         } else {
             perror("recv");
             exit(EXIT_FAILURE);
@@ -255,5 +284,6 @@ int main()
     pthread_mutex_destroy(&mutex_fin);
     pthread_mutex_destroy(&mutex_callback1);
     pthread_mutex_destroy(&mutex_callback2);
+    DestroyChannelsMutexes();
     return 0;
 }
