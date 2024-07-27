@@ -23,8 +23,6 @@
         "utility": "c",
         "system_error": "c",
         "limits": "c",
-        "cstdlib": "c",
-        "string.h": "c",
-        "tcp.h": "c"
+        "cstdlib": "c"
     }
 }

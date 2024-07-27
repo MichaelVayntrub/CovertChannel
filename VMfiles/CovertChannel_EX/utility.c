@@ -3,18 +3,20 @@
 static const char DEFAULT_BYTE =  0b01010101;
 static const char REVERSE_BYTE =  0b10101010;
 
-int* ReadTextFile(int *size, char* file_name)
+int* ReadTextFile(int *size)
 {
     FILE *fptr;
     int* message;
     int i = 0;
     char c;
 
-    fptr = fopen(file_name, "r");
+    fptr = fopen("input.txt", "r");
+
     if (fptr == NULL) {
         printf("Error: couldn't open the file.\n");
         return NULL;
     }
+
     *size = 0;
     while (fread(&c, sizeof(char), 1, fptr)) (*size)++;
     message = (int*)malloc(sizeof(int) * ((*size) *= CHAR_SIZE_XOR_EXPAND));
@@ -24,6 +26,7 @@ int* ReadTextFile(int *size, char* file_name)
         CharToBinary(i, message, c);
         i += CHAR_SIZE_XOR_EXPAND;
     }
+    
     fclose(fptr);
     return message;
 }
@@ -64,33 +67,27 @@ void PrintTxtInput(int *covert_message, int cm_size)
     printf("\n");
 }
 
-struct tcphdr* get_tcphdr_and_dport(struct nfq_data *nfa, int* port, int proto)
+struct tcphdr* get_tcphdr_and_dport(struct nfq_data *nfa, int* dport)
 {
     unsigned char *pkt_data;
     int data_len = nfq_get_payload(nfa, &pkt_data);
     struct iphdr *ip_header = (struct iphdr*)pkt_data;
     struct tcphdr *tcp_header = (struct tcphdr *)(pkt_data + sizeof(struct iphdr));
-    if (proto = TCP) *port = ntohs(tcp_header->dest);
-    else *port = ntohs(tcp_header->source);
+    *dport = ntohs(tcp_header->dest);
     return tcp_header;
 }
 
-int UpdateIptables(char* proto)
+int UpdateIptables()
 {
     char output1[150], output2[150];
+    sprintf(output1, "sudo -S iptables -A OUTPUT -p tcp --dport %d -j NFQUEUE --queue-num %d", SERVER_A_PORT, 0);
+    sprintf(output2, "sudo -S iptables -A OUTPUT -p tcp --dport %d -j NFQUEUE --queue-num %d", SERVER_B_PORT, 1);
     int flag = system("sudo -S iptables -F");
     flag |= system("sudo -S iptables -X");
     flag |= system("sudo -S iptables -Z");
-    if (!strcmp(proto, "http")) {
-        sprintf(output1, "sudo -S iptables -A OUTPUT -p tcp --dport %d -j NFQUEUE --queue-num %d", SERVER_HTTP_PORT, 0);
-        flag |= system(output1);
-    } else if (!strcmp(proto, "tcp")) {
-        sprintf(output1, "sudo -S iptables -A OUTPUT -p tcp --dport %d -j NFQUEUE --queue-num %d", SERVER_TCPA_PORT, 0);
-        sprintf(output2, "sudo -S iptables -A OUTPUT -p tcp --dport %d -j NFQUEUE --queue-num %d", SERVER_TCPB_PORT, 1);
-        flag |= system(output1);
-        flag |= system(output2);
-    }
-    
+    flag |= system(output1);
+    flag |= system(output2);
+   
     if(flag) {
         printf(ANSI_COLOR_RED "Failed to update iptables\n" ANSI_COLOR_RESET);
     } else {

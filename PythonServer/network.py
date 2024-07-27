@@ -1,10 +1,11 @@
 import socket
 import threading
 import time
+import utility
 
 class Server:
 
-    def __init__(self, name, port, host, logger, decipher, packet_lock):
+    def __init__(self, name, port, host, logger, decipher, packet_lock, type):
         self.name = name
         self.port = port
         self.host = host
@@ -13,6 +14,7 @@ class Server:
         self.logger = logger
         self.decipher = decipher
         self.packet_lock = packet_lock
+        self.type = type
 
     def run_server(self):
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -70,6 +72,7 @@ class Network:
         ]
         self.logger = logger
         self.decipher = decipher
+        self.is_vm_available = False
 
     def print_ip(self):
         self.logger.print_ip(self.HOST_IP, self.vm_ip)
@@ -89,3 +92,11 @@ class Network:
     def send_ip_to_vm(self):
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             s.sendto(self.HOST_IP.encode(), (self.vm_ip, self.vm_UDP_port))
+
+    def timeout(self):
+        if not self.is_vm_available:
+            print("vm not available")
+
+    def find_vm(self):
+        utility.set_timer(5, self.timeout())
+        self.send_ip_to_vm()

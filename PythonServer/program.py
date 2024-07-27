@@ -96,7 +96,7 @@ commands = {
                 ("", 0, 0),
                 set_state,
                 ["running"],
-                [],
+                ["tcp"],
                 0
     ),
     "help":     Command("help",
@@ -148,6 +148,14 @@ commands = {
                 2
     ),
     "clear":    Command("clear",
+                "Clears the terminal",
+                ("", 0, 0),
+                os.system,
+                ["cls"],
+                [],
+                0
+    ),
+    "login":    Command("login",
                 "Clears the terminal",
                 ("", 0, 0),
                 os.system,
