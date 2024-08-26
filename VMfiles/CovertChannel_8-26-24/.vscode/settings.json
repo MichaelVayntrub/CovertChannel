@@ -1,0 +1,30 @@
+{
+    "files.associations": {
+        "monitor.h": "c",
+        "libnetfilter_queue.h": "c",
+        "ip.h": "c",
+        "ratio": "c",
+        "cerrno": "c",
+        "chrono": "c",
+        "stdio.h": "c",
+        "random": "c",
+        "in.h": "c",
+        "stdlib.h": "c",
+        "unistd.h": "c",
+        "queue.h": "c",
+        "errno.h": "c",
+        "inet.h": "c",
+        "socket.h": "c",
+        "utility.h": "c",
+        "array": "c",
+        "string": "c",
+        "string_view": "c",
+        "initializer_list": "c",
+        "utility": "c",
+        "system_error": "c",
+        "limits": "c",
+        "cstdlib": "c",
+        "string.h": "c",
+        "tcp.h": "c"
+    }
+}

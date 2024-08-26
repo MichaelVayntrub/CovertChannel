@@ -71,7 +71,7 @@ class Input:
             clear_buffer()
             usage = self.session.network.calc_usage_percent()
             time = float(f"{time:.5f}")
-            self.session.logger.program_log(f"Elapsed time: {time}", "info")
+            self.session.logger.program_log(f"Elapsed time: {time} seconds", "info")
             self.session.logger.program_log(usage, "info")
             user_input = input(Input.INPUT_SAVE.format(message))
             if user_input.lower() in ['y', 'yes']:

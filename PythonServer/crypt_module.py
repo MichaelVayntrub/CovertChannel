@@ -39,6 +39,9 @@ class Decipher:
 
     def clear_message(self):
         self.message = ''
+        self.currByte = array.array('i', [0] * 2)
+        self.currIndex = 0
+        self.part = 0
 
     @property
     def is_message(self):

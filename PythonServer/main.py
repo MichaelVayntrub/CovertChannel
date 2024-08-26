@@ -10,6 +10,8 @@ import keyboard
 import time
 import os
 
+pressed_key = [None]
+
 def main() -> None:
     # Global Variables initialization
     global program_input, session, state_mutex, program_on, current_state, threads
@@ -42,11 +44,14 @@ def run_program():
         states[current_state]()
 
 def end_run():
+    global pressed_key
+
     for server in session.network.servers:
         if server.running:
             server.stop_server()
     for thread in threads:
         thread.join()
+    pressed_key[0] = 'none'
     set_state("input")
 
 def set_state(state, protocol="tcp"):
@@ -67,6 +72,9 @@ def set_state(state, protocol="tcp"):
     state_mutex.release()
 
 def on_key_press(event):
+    global pressed_key
+    pressed_key[0] = event.name
+
     if event.name == 'esc':
         button_event.set()
         log = "Closing the servers..."
@@ -77,19 +85,26 @@ def on_key_press(event):
         session.network.send_udp_vm("GO")
         session.network.timer = time.time()
 
+def check_status():
+    pass
+
 #---states--------------------------------------------------------------------------------------------------------------
 def state_input():
     if session.decipher.is_message:
         program_input.save_msg_input(session.network.timer, session.decipher.message)
+        session.logger.secret = "none"
         session.decipher.clear_message()
     program_input.command_input()
 
 def state_running():
+    global pressed_key
+
     session.logger.program_log(f"\nRunning {session.protocol} covert channel...", "notice")
     if session.network.connect_to_vm():
+        pressed_key[0] = 'none'
         for server in session.network.servers:
             if server.type == session.protocol:
-                thread = threading.Thread(target=server.run_server)
+                thread = threading.Thread(target=server.run_server, args=(button_event, pressed_key))
                 threads.append(thread)
                 thread.start()
     else:

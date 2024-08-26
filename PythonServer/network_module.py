@@ -21,11 +21,12 @@ class Server:
         self.session = session
         self.packet_lock = packet_lock
 
-    def run_server(self):
-        self.session.network.active_servers += 1
+    def run_server(self, stop_event, pressed_key):
+        with self.packet_lock:
+            self.session.network.active_servers += 1
         logger, decipher = self.session.logger, self.session.decipher
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #--new--#
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server_socket.bind((self.host, self.port))
         server_socket.listen(1)
         server_socket.settimeout(1)
@@ -47,9 +48,11 @@ class Server:
                     else:
                         raise Exception("protocol not supported")
             except socket.timeout:
-                pass
+                if stop_event.is_set() and pressed_key[0] == 'esc':
+                    self.stop_server()
+                    break
             except Exception as e:
-                logger.server_log(str(e) , "error", self.name)
+                logger.server_log(str(e), "error", self.name)
         server_socket.close()
         logger.server_log("server closed", "notice", self.name)
 
@@ -104,10 +107,11 @@ class Server:
 
     def reset_connection(self):
         self.listening = False
-        logger.server_log("connection reset", "connect", self.name)
+        self.session.logger.server_log("connection reset", "connect", self.name)
 
     def stop_server(self):
-        self.session.network.active_servers -= 1
+        with self.packet_lock:
+            self.session.network.active_servers -= 1
         if self.session.network.active_servers == 0:
             end_time = time.time()
             self.session.network.timer = end_time - self.session.network.timer
