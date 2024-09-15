@@ -72,21 +72,21 @@ def set_state(state, protocol="tcp"):
     state_mutex.release()
 
 def on_key_press(event):
-    global pressed_key
-    pressed_key[0] = event.name
+    global pressed_key, current_state
 
     if event.name == 'esc':
-        button_event.set()
-        log = "Closing the servers..."
-        session.logger.program_log(log, "notice")
-        end_run()
+        if current_state == 'running':
+            pressed_key[0] = event.name
+            button_event.set()
+            log = "Closing the servers..."
+            session.logger.program_log(log, "notice")
+            end_run()
     elif event.name == 'tab':
-        button_event.set()
-        session.network.send_udp_vm("GO")
-        session.network.timer = time.time()
-
-def check_status():
-    pass
+        if current_state == 'running':
+            pressed_key[0] = event.name
+            button_event.set()
+            session.network.send_udp_vm("GO")
+            session.network.timer = time.time()
 
 #---states--------------------------------------------------------------------------------------------------------------
 def state_input():

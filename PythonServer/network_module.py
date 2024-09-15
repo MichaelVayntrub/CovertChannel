@@ -10,6 +10,7 @@ http_mapping = {
 }
 
 class Server:
+    TIMEOUT = 5
 
     def __init__(self, name, session, port, host, packet_lock, type):
         self.name = name
